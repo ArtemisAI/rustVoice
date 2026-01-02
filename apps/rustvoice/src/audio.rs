@@ -127,6 +127,10 @@ impl AudioCapture {
         let buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(samples_per_chunk * 2)));
         
         let buffer_clone = buffer.clone();
+        // Buffer for the Resampler (needs fixed chunk input, e.g., 1024)
+        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(2048)));
+        let input_buffer_clone = input_buffer.clone();
+
         let resampler_clone = resampler.clone();
         
         let err_fn = |err| log::error!("Audio stream error: {}", err);
@@ -140,6 +144,7 @@ impl AudioCapture {
                             data,
                             channels,
                             sample_rate,
+                            &input_buffer_clone, // New buffer for accumulating 1024 chunks
                             &buffer_clone,
                             &resampler_clone,
                             &audio_tx,
@@ -152,6 +157,7 @@ impl AudioCapture {
             }
             SampleFormat::I16 => {
                 let buffer_clone = buffer.clone();
+                let input_buffer_clone = input_buffer.clone();
                 let resampler_clone = resampler.clone();
                 device.build_input_stream(
                     &config.into(),
@@ -163,6 +169,7 @@ impl AudioCapture {
                             &float_data,
                             channels,
                             sample_rate,
+                            &input_buffer_clone,
                             &buffer_clone,
                             &resampler_clone,
                             &audio_tx,
@@ -222,7 +229,8 @@ fn process_audio_data(
     data: &[f32],
     channels: usize,
     _sample_rate: u32,
-    buffer: &Arc<Mutex<Vec<f32>>>,
+    input_buffer: &Arc<Mutex<Vec<f32>>>, // Accumulator for resampler input
+    buffer: &Arc<Mutex<Vec<f32>>>,       // Accumulator for Whisper chunks
     resampler: &Option<Arc<Mutex<FftFixedIn<f32>>>>,
     audio_tx: &Sender<Vec<f32>>,
     samples_per_chunk: usize,
@@ -237,24 +245,40 @@ fn process_audio_data(
     };
     
     // Resample if necessary
-    let resampled = if let Some(resampler) = resampler {
-        let mut resampler = resampler.lock();
-        match resampler.process(&[mono], None) {
-            Ok(output) => output.into_iter().next().unwrap_or_default(),
-            Err(e) => {
-                log::error!("Resampling error: {}", e);
-                return;
+    if let Some(resampler) = resampler {
+        // 1. Append new data to input_buffer
+        let mut in_buf = input_buffer.lock();
+        in_buf.extend(mono);
+
+        // 2. Process in chunks of 1024 (FftFixedIn requirement)
+        let mut resampler_lock = resampler.lock();
+        let input_needed = 1024; // Fixed size for FftFixedIn defined effectively in line 116? Yes.
+
+        while in_buf.len() >= input_needed {
+            let chunk: Vec<f32> = in_buf.drain(..input_needed).collect();
+            let waves_in = vec![chunk];
+            
+            match resampler_lock.process(&waves_in, None) {
+                Ok(output) => {
+                     let processed = output.into_iter().next().unwrap_or_default();
+                     // Add to output buffer
+                     let mut out_buf = buffer.lock();
+                     out_buf.extend(processed);
+                }
+                Err(e) => {
+                    log::error!("Resampling error: {}", e);
+                    // Drop bad chunk? continue;
+                }
             }
         }
     } else {
-        mono
-    };
+        // No resampling needed, pass through
+        let mut buf = buffer.lock();
+        buf.extend(mono);
+    }
     
-    // Add to buffer
+    // Check output buffer for full chunks to send to Whisper
     let mut buf = buffer.lock();
-    buf.extend(resampled);
-    
-    // Send chunk when buffer is full
     if buf.len() >= samples_per_chunk {
         let chunk: Vec<f32> = buf.drain(..samples_per_chunk).collect();
         if audio_tx.try_send(chunk).is_err() {

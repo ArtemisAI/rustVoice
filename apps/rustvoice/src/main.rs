@@ -394,12 +394,14 @@ impl eframe::App for AutoTyperApp {
 
             // Settings Panel
             if self.show_settings {
+                let mut is_open = self.show_settings;
                 egui::Window::new("⚙ Settings")
                     .default_pos([200.0, 150.0])
                     .default_width(350.0)
                     .collapsible(true)
-                    .open(&mut self.show_settings)
+                    .open(&mut is_open)
                     .show(ctx, |ui| {
+                        // (Closure content remains the same)
                         // ===== 🎨 Appearance Section =====
                         ui.heading("🎨 Appearance");
                         ui.add_space(5.0);
@@ -523,6 +525,7 @@ impl eframe::App for AutoTyperApp {
                             }
                         });
                     });
+                self.show_settings = is_open;
             }
 
             // Text Area
