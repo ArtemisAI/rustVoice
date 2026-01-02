@@ -1,0 +1,39 @@
+# Rust
+/target
+/target_isolated
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs & Assets
+*.log
+*.txt
+*.zip
+logs/
+dist/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project Specific
+settings.json
+models/
+models_cache/
+*.m4a
+*.wav
+*.mp3
+test/
