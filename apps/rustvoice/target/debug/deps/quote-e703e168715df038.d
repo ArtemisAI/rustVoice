@@ -1,0 +1,11 @@
+/home/runner/work/rustVoice/rustVoice/apps/rustvoice/target/debug/deps/quote-e703e168715df038.d: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ext.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/format.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ident_fragment.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/to_tokens.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/runtime.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/spanned.rs
+
+/home/runner/work/rustVoice/rustVoice/apps/rustvoice/target/debug/deps/libquote-e703e168715df038.rmeta: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ext.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/format.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ident_fragment.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/to_tokens.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/runtime.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/spanned.rs
+
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/lib.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ext.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/format.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/ident_fragment.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/to_tokens.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/runtime.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.42/src/spanned.rs:

@@ -247,29 +247,49 @@ fn process_audio_data(
     // Resample if necessary
     if let Some(resampler) = resampler {
         // 1. Append new data to input_buffer
-        let mut in_buf = input_buffer.lock();
-        in_buf.extend(mono);
-
+        {
+            let mut in_buf = input_buffer.lock();
+            in_buf.extend(mono);
+        } // Release input_buffer lock
+        
         // 2. Process in chunks of 1024 (FftFixedIn requirement)
-        let mut resampler_lock = resampler.lock();
-        let input_needed = 1024; // Fixed size for FftFixedIn defined effectively in line 116? Yes.
-
-        while in_buf.len() >= input_needed {
-            let chunk: Vec<f32> = in_buf.drain(..input_needed).collect();
-            let waves_in = vec![chunk];
+        let input_needed = 1024; // Fixed size for FftFixedIn
+        
+        loop {
+            // Check if we have enough data (acquire and release lock quickly)
+            let has_enough = {
+                let in_buf = input_buffer.lock();
+                in_buf.len() >= input_needed
+            };
             
-            match resampler_lock.process(&waves_in, None) {
-                Ok(output) => {
-                     let processed = output.into_iter().next().unwrap_or_default();
-                     // Add to output buffer
-                     let mut out_buf = buffer.lock();
-                     out_buf.extend(processed);
-                }
-                Err(e) => {
-                    log::error!("Resampling error: {}", e);
-                    // Drop bad chunk? continue;
-                }
+            if !has_enough {
+                break;
             }
+            
+            // Extract one chunk to process
+            let chunk = {
+                let mut in_buf = input_buffer.lock();
+                in_buf.drain(..input_needed).collect::<Vec<f32>>()
+            }; // Release input_buffer lock before resampling
+            
+            // Resample the chunk
+            let waves_in = vec![chunk];
+            let processed = {
+                let mut resampler_lock = resampler.lock();
+                match resampler_lock.process(&waves_in, None) {
+                    Ok(output) => output.into_iter().next().unwrap_or_default(),
+                    Err(e) => {
+                        log::error!("Resampling error: {}", e);
+                        continue; // Skip this chunk on error
+                    }
+                }
+            }; // Release resampler lock
+            
+            // Add resampled data to output buffer
+            {
+                let mut out_buf = buffer.lock();
+                out_buf.extend(processed);
+            } // Release output buffer lock
         }
     } else {
         // No resampling needed, pass through
