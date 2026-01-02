@@ -67,6 +67,7 @@ impl WhisperTranscriber {
                 // Non-blocking drain
                 while let Ok(chunk) = rx.try_recv() {
                     audio_buffer.extend_from_slice(&chunk);
+                    log::debug!("Received audio chunk, buffer now {} samples", audio_buffer.len());
                 }
 
                 // If we have enough data to be worth transcribing (> 1s)
@@ -100,6 +101,7 @@ impl WhisperTranscriber {
     fn transcribe_segment(&self, pcm_data: &[f32]) -> Result<String> {
         let mel = audio::pcm_to_mel(&self.config, pcm_data, &self.mel_filters);
         let mel_len = mel.len();
+        log::debug!("Transcribing {} samples -> {} mel bins", pcm_data.len(), mel_len / self.config.num_mel_bins);
         let mel_tensor = Tensor::from_vec(
             mel,
             (1, self.config.num_mel_bins, mel_len / self.config.num_mel_bins),
@@ -123,7 +125,13 @@ impl WhisperTranscriber {
             false // Verbose
         )?;
 
-        let segments = decoder.run(&mel_tensor)?;
+        let segments = match decoder.run(&mel_tensor) {
+            Ok(segs) => segs,
+            Err(e) => {
+                log::error!("Decoder run failed: {:?}", e);
+                return Err(e.into());
+            }
+        };
         
         let mut full_text = String::new();
         for seg in segments {
