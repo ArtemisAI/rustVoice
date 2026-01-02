@@ -318,9 +318,14 @@ impl eframe::App for AutoTyperApp {
              }
         }
         
-        // Process transcription results
+        // Process transcription results (but not when muted)
         if let Some(rx) = &self.transcription_rx {
             while let Ok(result) = rx.try_recv() {
+                // Skip updating text if muted
+                if self.mic_muted {
+                    continue;
+                }
+                
                 // Append confirmed text to text_to_type
                 if !result.confirmed.is_empty() && !self.text_to_type.ends_with(&result.confirmed) {
                     // Find new confirmed text
@@ -407,13 +412,11 @@ impl eframe::App for AutoTyperApp {
                 }
                 
                 // Mute/Unmute toggle button (only visible when dictating)
+                // When muted, transcription results are still processed but not displayed
                 if self.is_dictating {
                     let mute_text = if self.mic_muted { "🎙 Unmute" } else { "🔇 Mute" };
                     if ui.button(mute_text).clicked() {
                         self.mic_muted = !self.mic_muted;
-                        // Note: Muting doesn't stop audio capture, just prevents sending to transcriber
-                        // This would require more complex implementation to actually filter in process_audio_data
-                        // For now, we just update UI state - full implementation would need shared mute state
                     }
                 }
                 
