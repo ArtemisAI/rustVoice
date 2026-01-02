@@ -29,10 +29,13 @@ For text-based typing simulation and legacy automation.
 
 ```text
 rustVoice/
-├── v5_rust_typer/        # Core AI Voice Transcription Engine
-├── Python_SDK/           # Legacy Python Text Typer Scripts
-├── docs/                 # Quick start, issues, and roadmap
-├── test/                 # Sample audio files
+├── apps/
+│   └── rustVoice/        # Core AI Voice Transcription Engine (Rust)
+├── sdk/
+│   └── python/           # Legacy Text Typer Scripts (Python)
+├── docs/                 # Documentation & Roadmap
+├── assets/               # Resources and Test Audio
+├── dist/                 # Distribution artifacts
 └── README.md             # This file
 ```
 
@@ -45,7 +48,7 @@ For detailed instructions, see the **[Quick Start Guide](docs/quick_start.md)**.
 ### 1. Launching rustVoice (Rust)
 
 ```powershell
-cd v5_rust_typer
+cd apps/rustvoice
 cargo run --release
 ```
 
@@ -53,7 +56,7 @@ cargo run --release
 
 ```powershell
 pip install keyboard pyperclip tk
-python Python_SDK/Exam_Auto_Typer_v4.py
+python sdk/python/Exam_Auto_Typer_v4.py
 ```
 
 ---

@@ -24,7 +24,7 @@ Welcome to **rustVoice**! This guide will help you get up and running with the A
 Navigate to the backend directory and run the application:
 
 ```powershell
-cd v5_rust_typer
+cd apps/rustvoice
 cargo run --release
 ```
 
