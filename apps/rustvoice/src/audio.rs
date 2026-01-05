@@ -10,7 +10,7 @@ use cpal::{SampleFormat, SampleRate, Stream, StreamConfig};
 use crossbeam_channel::{bounded, Receiver, Sender};
 use parking_lot::Mutex;
 use rubato::{FftFixedIn, Resampler};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 /// Target sample rate for Whisper (16kHz)
@@ -26,6 +26,7 @@ pub struct AudioCapture {
     audio_rx: Receiver<Vec<f32>>,
     _audio_tx: Sender<Vec<f32>>,
     current_device_name: Option<String>,
+    audio_level: Arc<AtomicU32>, // Audio level (0.0 to 1.0 stored as f32 bits)
 }
 
 /// Get list of available input devices
@@ -61,12 +62,18 @@ impl AudioCapture {
             audio_rx,
             _audio_tx: audio_tx,
             current_device_name: None,
+            audio_level: Arc::new(AtomicU32::new(0)),
         })
     }
     
     /// Get current device name
     pub fn get_current_device(&self) -> Option<&str> {
         self.current_device_name.as_deref()
+    }
+    
+    /// Get current audio level (0.0 to 1.0)
+    pub fn get_audio_level(&self) -> f32 {
+        f32::from_bits(self.audio_level.load(Ordering::Relaxed))
     }
     
     /// Start recording from a specific device by name (or default if None)
@@ -124,6 +131,7 @@ impl AudioCapture {
         
         let audio_tx = self._audio_tx.clone();
         let is_recording = self.is_recording.clone();
+        let audio_level = self.audio_level.clone();
         let buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(samples_per_chunk * 2)));
         
         let buffer_clone = buffer.clone();
@@ -132,6 +140,7 @@ impl AudioCapture {
         let input_buffer_clone = input_buffer.clone();
 
         let resampler_clone = resampler.clone();
+        let audio_level_clone = audio_level.clone();
         
         let err_fn = |err| log::error!("Audio stream error: {}", err);
         
@@ -149,6 +158,7 @@ impl AudioCapture {
                             &resampler_clone,
                             &audio_tx,
                             samples_per_chunk,
+                            &audio_level_clone,
                         );
                     },
                     err_fn,
@@ -159,6 +169,7 @@ impl AudioCapture {
                 let buffer_clone = buffer.clone();
                 let input_buffer_clone = input_buffer.clone();
                 let resampler_clone = resampler.clone();
+                let audio_level_clone = audio_level.clone();
                 device.build_input_stream(
                     &config.into(),
                     move |data: &[i16], _: &_| {
@@ -174,6 +185,7 @@ impl AudioCapture {
                             &resampler_clone,
                             &audio_tx,
                             samples_per_chunk,
+                            &audio_level_clone,
                         );
                     },
                     err_fn,
@@ -234,6 +246,7 @@ fn process_audio_data(
     resampler: &Option<Arc<Mutex<FftFixedIn<f32>>>>,
     audio_tx: &Sender<Vec<f32>>,
     samples_per_chunk: usize,
+    audio_level: &Arc<AtomicU32>,
 ) {
     // Convert to mono by averaging channels
     let mono: Vec<f32> = if channels > 1 {
@@ -243,6 +256,14 @@ fn process_audio_data(
     } else {
         data.to_vec()
     };
+    
+    // Calculate RMS (Root Mean Square) for audio level indicator
+    if !mono.is_empty() {
+        let rms: f32 = (mono.iter().map(|&x| x * x).sum::<f32>() / mono.len() as f32).sqrt();
+        // Clamp to 0.0-1.0 range (audio is typically -1.0 to 1.0)
+        let level = rms.min(1.0).max(0.0);
+        audio_level.store(level.to_bits(), Ordering::Relaxed);
+    }
     
     // Resample if necessary
     if let Some(resampler) = resampler {
@@ -301,6 +322,7 @@ fn process_audio_data(
     let mut buf = buffer.lock();
     if buf.len() >= samples_per_chunk {
         let chunk: Vec<f32> = buf.drain(..samples_per_chunk).collect();
+        log::debug!("Sending audio chunk, {} samples", chunk.len());
         if audio_tx.try_send(chunk).is_err() {
             log::warn!("Audio buffer full, dropping chunk");
         }

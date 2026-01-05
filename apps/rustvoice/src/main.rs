@@ -58,6 +58,7 @@ struct AutoTyperApp {
     transcription_rx: Option<Receiver<TranscriptionResult>>,
     model_load_rx: Option<Receiver<anyhow::Result<Arc<WhisperTranscriber>>>>,
     is_dictating: bool,
+    mic_muted: bool,
     pending_transcription: String,
     model_status: String,
     model_progress: f32,
@@ -116,6 +117,7 @@ impl AutoTyperApp {
             transcription_rx: None,
             model_load_rx: None,
             is_dictating: false,
+            mic_muted: false,
             pending_transcription: String::new(),
             model_status: "Model not loaded".to_string(),
             model_progress: 0.0,
@@ -316,9 +318,14 @@ impl eframe::App for AutoTyperApp {
              }
         }
         
-        // Process transcription results
+        // Process transcription results (but not when muted)
         if let Some(rx) = &self.transcription_rx {
             while let Ok(result) = rx.try_recv() {
+                // Skip updating text if muted
+                if self.mic_muted {
+                    continue;
+                }
+                
                 // Append confirmed text to text_to_type
                 if !result.confirmed.is_empty() && !self.text_to_type.ends_with(&result.confirmed) {
                     // Find new confirmed text
@@ -337,12 +344,31 @@ impl eframe::App for AutoTyperApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("rustVoice v6 (AI Edition) 🦀🎙");
-            if self.is_dictating {
-                ui.horizontal(|ui| {
-                     ui.colored_label(egui::Color32::from_rgb(255, 100, 100), "🔴 LISTENING");
-                     ui.spinner();
-                });
-            }
+            
+            // Audio status indicators
+            ui.horizontal(|ui| {
+                if self.is_dictating {
+                    let status_text = if self.mic_muted { "🟡 MUTED" } else { "🔴 LISTENING" };
+                    let status_color = if self.mic_muted { 
+                        egui::Color32::from_rgb(255, 200, 0) 
+                    } else { 
+                        egui::Color32::from_rgb(255, 100, 100) 
+                    };
+                    ui.colored_label(status_color, status_text);
+                    if !self.mic_muted {
+                        ui.spinner();
+                    }
+                    
+                    // Audio level indicator
+                    if let Some(capture) = &self.audio_capture {
+                        let level = capture.get_audio_level();
+                        ui.add_space(10.0);
+                        ui.label("🔊");
+                        ui.add(egui::ProgressBar::new(level).desired_width(100.0).show_percentage());
+                    }
+                }
+            });
+            
             ui.label(egui::RichText::new(&self.model_status).small().weak());
             ui.add_space(10.0);
 
@@ -382,6 +408,15 @@ impl eframe::App for AutoTyperApp {
                         self.stop_dictation();
                     } else {
                         self.start_dictation();
+                    }
+                }
+                
+                // Mute/Unmute toggle button (only visible when dictating)
+                // When muted, transcription results are still processed but not displayed
+                if self.is_dictating {
+                    let mute_text = if self.mic_muted { "🎙 Unmute" } else { "🔇 Mute" };
+                    if ui.button(mute_text).clicked() {
+                        self.mic_muted = !self.mic_muted;
                     }
                 }
                 
